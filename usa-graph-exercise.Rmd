@@ -1,0 +1,129 @@
+---
+title: "Hoja de ejercicios 0: Teoría de grafos"
+author: "José Vicente Mellado"
+date: "14 February 2017"
+output: html_document
+---
+
+## Introducción
+  
+El grafo out.contiguous-usa representa 48 estados de EEUU que comparten frontera (eliminando Alaska y Hawaii, que no están conectadas a ningún otro estado) e incluyendo el 
+distrito de Columbia. Dos estados comparten frontera si existe una arista que los une.
+
+```{r import-libraries, message=FALSE, warning=FALSE}
+library(igraph)
+library(magrittr)
+library(knitr)
+library(dplyr)
+library(nnet)
+```
+
+1. Carga el grafo en memoria. Las funciones read_table y graph.data.frame facilitan la tarea de cargar grafos en un formato aceptado por igraph. Busca en la documentación de igraph y R su descripción y uso.
+
+```{r 1}
+usa_states <- read.table('./out.contiguous-usa', sep=' ', comment.char='%') %>%
+                graph_from_data_frame(directed=FALSE)
+```
+
+2. Muestra el grafo por pantalla e indica qué tipo de grafo es. ¿Qué estructura de datos consideras más eficiente para almacenar la información de este grafo?
+
+```{r 2}
+plot(usa_states, layout=layout.kamada.kawai)
+
+is.connected(usa_states)
+is.directed(usa_states)
+is.weighted(usa_states)
+```
+
+Se trata de un grafo no dirigido, no conexo y no ponderado.
+
+Una lista de adyacencias es una opción interesante. Una matriz de adyacencias contendría demasiados ceros y supondría un gasto en memoria innecesario.
+
+
+3. Averigua con cuántos estados comparte frontera cada uno de los estados del grafo. 
+```{r 3}
+states_degree <- degree(usa_states)
+
+hist(states_degree)
+
+kable(data.frame(states_degree), col.names=c('Estado y Nº de Estados vecinos'))
+```
+
+4. Si el conjunto de estados 5, 8, 27, 33, 34, 42 se independizara, ¿podrían sus habitantes viajar por todo el conjunto de los estados independientes sin necesidad de entrar a EEUU?
+```{r 4}
+is_connected(usa_states)
+
+independent_states <- induced_subgraph(usa_states, c('5', '8', '27', '33', '34', '42'))
+
+is_connected(independent_states)
+
+plot(independent_states)
+```
+
+Como el conjunto de estados original se formaba una componente conexa, por lo tanto, para que este conjunto de estados independientes pueda ser viajado completamente sin necesidad de volver a EEUU (conjunto de estados que no se han independizado), basta con que este conjunto de estados independientes sea conexo.
+
+Como vemos gracias a la función is_connected y al gráfico, se puede apreciar que se puede visitar el conjunto de estados independientes sin necesidad de entrar a EEUU.
+
+
+5. ¿Qué estado elegirías para poner una empresa de exportación a estados cercanos?
+```{r 5}
+cat('Estados con más fronteras con otros estados\n')
+states_degree[which.is.max(states_degree)]
+
+cat('\n')
+
+cat('Estado más importante según el concepto de Eigen Centrality, además de su valor Eigen Centrality \n')
+eigen <- eigen_centrality(usa_states)$vector
+eigen[which.is.max(eigen)]
+``` 
+
+Eligiría el estado número 8, porque además de ser uno de los que más fronteras tiene con otros estados junto con el 5, es el más importante según Eigen Centrality (estado más importante en función del número de vecinos y la importancia de los mismos).
+
+
+6. ¿Cuántos estados podemos agrupar de manera que todos compartan frontera entre sí? ¿En cuántos casos se produce esta situación en el grafo? Pon un ejemplo.
+
+```{r 6}
+largest.cliques(usa_states)
+``` 
+
+Esto se produce en hasta 57 ocasiones. Un ejemplo: 34, 41 y 42.
+
+
+7. ¿Cuál es el máximo número de estados que es necesario atravesar para ir de un estado a otro?
+
+```{r 7}
+diameter(usa_states)
+``` 
+
+
+8. ¿Cuál es el camino más corto para ir del estado 40 al estado 13? ¿Existe un único camino?
+
+```{r 8}
+all_shortest_paths(usa_states,'40','13')$res
+``` 
+
+Existen hasta 6 caminos cortos por los que hay que atravesar 5 estados.
+
+
+9. Representa la matriz de adyacencia de este grafo. ¿Es simétrica? ¿Por qué?
+```{r 9}
+adjacency_matrix <- as_adj(usa_states)
+
+adjacency_matrix %>%
+  as.matrix() %>%
+  isSymmetric()
+``` 
+
+La matriz de adyacencia de este grafo sí es simétrica porque se trata de un grafo no ponderado y no dirigido.
+
+
+10. Añade los estados de Hawaii (49) y Alaska (50). ¿En qué tipo de grafo se ha convertido?
+```{r 10}
+usa_states <- usa_states + vertex('49', '50')
+
+is.connected(usa_states)
+
+plot(usa_states)
+``` 
+
+El grafo se ha convertido en una componente no conexa porque los estados añadidos no comparten frontera con ningún estado.
